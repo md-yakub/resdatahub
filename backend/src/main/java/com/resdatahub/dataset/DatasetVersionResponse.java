@@ -11,6 +11,7 @@ public record DatasetVersionResponse(
         String description,
         String changeNote,
         DatasetVersionStatus status,
+        LicenseResponse license,
         Instant createdAt,
         Instant updatedAt,
         Instant publishedAt

@@ -52,6 +52,10 @@ public class DatasetVersion {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "license_id")
+    private License license;
+
     public UUID getId() {
         return id;
     }
@@ -118,6 +122,14 @@ public class DatasetVersion {
 
     public void setPublishedAt(Instant publishedAt) {
         this.publishedAt = publishedAt;
+    }
+
+    public License getLicense() {
+        return license;
+    }
+
+    public void setLicense(License license) {
+        this.license = license;
     }
 
     @PrePersist

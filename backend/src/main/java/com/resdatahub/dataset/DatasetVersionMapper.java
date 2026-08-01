@@ -34,9 +34,26 @@ public class DatasetVersionMapper {
                 version.getDescription(),
                 version.getChangeNote(),
                 version.getStatus(),
+                toLicenseResponse(version.getLicense()),
                 version.getCreatedAt(),
                 version.getUpdatedAt(),
                 version.getPublishedAt()
+        );
+    }
+
+    private LicenseResponse toLicenseResponse(License license) {
+        if (license == null) {
+            return null;
+        }
+
+        return new LicenseResponse(
+                license.getId(),
+                license.getCode(),
+                license.getName(),
+                license.getUri(),
+                license.isActive(),
+                license.getCreatedAt(),
+                license.getUpdatedAt()
         );
     }
 }

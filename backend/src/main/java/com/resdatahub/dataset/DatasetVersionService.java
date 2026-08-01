@@ -14,15 +14,18 @@ public class DatasetVersionService {
 
     private final DatasetRepository datasetRepository;
     private final DatasetVersionRepository datasetVersionRepository;
+    private final LicenseRepository licenseRepository;
     private final DatasetVersionMapper datasetVersionMapper;
 
     public DatasetVersionService(
             DatasetRepository datasetRepository,
             DatasetVersionRepository datasetVersionRepository,
+            LicenseRepository licenseRepository,
             DatasetVersionMapper datasetVersionMapper
     ) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
+        this.licenseRepository = licenseRepository;
         this.datasetVersionMapper = datasetVersionMapper;
     }
 
@@ -57,6 +60,23 @@ public class DatasetVersionService {
         }
 
         DatasetVersion version = datasetVersionMapper.toEntity(request, dataset);
+        DatasetVersion savedVersion = datasetVersionRepository.save(version);
+        return datasetVersionMapper.toResponse(savedVersion);
+    }
+
+    @Transactional
+    public DatasetVersionResponse updateLicense(
+            UUID datasetId,
+            UUID versionId,
+            UpdateDatasetVersionLicenseRequest request
+    ) {
+        DatasetVersion version = findVersion(datasetId, versionId);
+        ensureDraft(version);
+
+        License license = licenseRepository.findByIdAndActiveTrue(request.licenseId())
+                .orElseThrow(() -> new ResourceNotFoundException("License not found"));
+
+        version.setLicense(license);
         DatasetVersion savedVersion = datasetVersionRepository.save(version);
         return datasetVersionMapper.toResponse(savedVersion);
     }

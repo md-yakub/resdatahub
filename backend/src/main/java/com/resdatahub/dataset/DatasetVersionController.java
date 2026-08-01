@@ -111,4 +111,27 @@ public class DatasetVersionController {
     ) {
         return datasetVersionService.updateVersion(datasetId, versionId, request);
     }
+
+    @PatchMapping("/{versionId}/license")
+    @Operation(
+            summary = "Update dataset version license",
+            description = "Sets the license for a DRAFT dataset version.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Dataset version license updated.",
+                            content = @Content(schema = @Schema(implementation = DatasetVersionResponse.class))
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Invalid request.", content = @Content),
+                    @ApiResponse(responseCode = "404", description = "Dataset, version, or license not found.", content = @Content),
+                    @ApiResponse(responseCode = "409", description = "Version is immutable.", content = @Content)
+            }
+    )
+    public DatasetVersionResponse updateLicense(
+            @PathVariable UUID datasetId,
+            @PathVariable UUID versionId,
+            @Valid @RequestBody UpdateDatasetVersionLicenseRequest request
+    ) {
+        return datasetVersionService.updateLicense(datasetId, versionId, request);
+    }
 }
