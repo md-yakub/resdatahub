@@ -1,3 +1,8 @@
 spring.datasource.url=jdbc:postgresql://127.0.0.1:5434/db_name
 spring.datasource.username=db_user
 spring.datasource.password=db_pass
+
+resdatahub.minio.endpoint=http://127.0.0.1:9000
+resdatahub.minio.access-key=minio_user
+resdatahub.minio.secret-key=minio_password
+resdatahub.minio.bucket=resdatahub-files
