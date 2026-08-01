@@ -11,4 +11,6 @@ public interface DatasetFileRepository extends JpaRepository<DatasetFile, UUID> 
     List<DatasetFile> findByDatasetVersionIdOrderByCreatedAtDesc(UUID datasetVersionId);
 
     Optional<DatasetFile> findByIdAndDatasetVersionId(UUID id, UUID datasetVersionId);
+
+    long countByDatasetVersionId(UUID datasetVersionId);
 }

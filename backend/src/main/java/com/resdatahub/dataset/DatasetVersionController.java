@@ -134,4 +134,25 @@ public class DatasetVersionController {
     ) {
         return datasetVersionService.updateLicense(datasetId, versionId, request);
     }
+
+    @PostMapping("/{versionId}/publish")
+    @Operation(
+            summary = "Publish dataset version",
+            description = "Publishes a complete DRAFT dataset version and makes it immutable.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Dataset version published.",
+                            content = @Content(schema = @Schema(implementation = DatasetVersionResponse.class))
+                    ),
+                    @ApiResponse(responseCode = "404", description = "Dataset or version not found.", content = @Content),
+                    @ApiResponse(responseCode = "409", description = "Version is not publishable.", content = @Content)
+            }
+    )
+    public DatasetVersionResponse publishVersion(
+            @PathVariable UUID datasetId,
+            @PathVariable UUID versionId
+    ) {
+        return datasetVersionService.publishVersion(datasetId, versionId);
+    }
 }

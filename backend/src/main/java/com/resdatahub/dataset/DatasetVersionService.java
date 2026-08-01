@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,17 +16,23 @@ public class DatasetVersionService {
 
     private final DatasetRepository datasetRepository;
     private final DatasetVersionRepository datasetVersionRepository;
+    private final DatasetCreatorRepository datasetCreatorRepository;
+    private final DatasetFileRepository datasetFileRepository;
     private final LicenseRepository licenseRepository;
     private final DatasetVersionMapper datasetVersionMapper;
 
     public DatasetVersionService(
             DatasetRepository datasetRepository,
             DatasetVersionRepository datasetVersionRepository,
+            DatasetCreatorRepository datasetCreatorRepository,
+            DatasetFileRepository datasetFileRepository,
             LicenseRepository licenseRepository,
             DatasetVersionMapper datasetVersionMapper
     ) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
+        this.datasetCreatorRepository = datasetCreatorRepository;
+        this.datasetFileRepository = datasetFileRepository;
         this.licenseRepository = licenseRepository;
         this.datasetVersionMapper = datasetVersionMapper;
     }
@@ -110,6 +118,19 @@ public class DatasetVersionService {
         return datasetVersionMapper.toResponse(savedVersion);
     }
 
+    @Transactional
+    public DatasetVersionResponse publishVersion(UUID datasetId, UUID versionId) {
+        DatasetVersion version = findVersion(datasetId, versionId);
+        ensureDraftForPublication(version);
+        validatePublishRequirements(version);
+
+        version.setStatus(DatasetVersionStatus.PUBLISHED);
+        version.setPublishedAt(Instant.now());
+
+        DatasetVersion savedVersion = datasetVersionRepository.save(version);
+        return datasetVersionMapper.toResponse(savedVersion);
+    }
+
     private Dataset findDataset(UUID datasetId) {
         return datasetRepository.findById(datasetId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dataset not found"));
@@ -155,5 +176,42 @@ public class DatasetVersionService {
         }
 
         version.setTitle(title);
+    }
+
+    private void ensureDraftForPublication(DatasetVersion version) {
+        if (version.getStatus() != DatasetVersionStatus.DRAFT) {
+            throw new ConflictException("Only DRAFT dataset versions can be published");
+        }
+    }
+
+    private void validatePublishRequirements(DatasetVersion version) {
+        List<String> missingRequirements = new ArrayList<>();
+
+        if (!StringUtils.hasText(version.getTitle())) {
+            missingRequirements.add("title");
+        }
+
+        if (!StringUtils.hasText(version.getDescription())) {
+            missingRequirements.add("description");
+        }
+
+        if (datasetCreatorRepository.countByDatasetVersionId(version.getId()) == 0) {
+            missingRequirements.add("at least one creator");
+        }
+
+        if (datasetFileRepository.countByDatasetVersionId(version.getId()) == 0) {
+            missingRequirements.add("at least one uploaded file");
+        }
+
+        if (version.getLicense() == null) {
+            missingRequirements.add("selected license");
+        }
+
+        if (!missingRequirements.isEmpty()) {
+            throw new ConflictException(
+                    "Dataset version cannot be published because it is missing: "
+                            + String.join(", ", missingRequirements)
+            );
+        }
     }
 }

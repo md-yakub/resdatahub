@@ -12,6 +12,8 @@ public interface DatasetCreatorRepository extends JpaRepository<DatasetCreator, 
 
     Optional<DatasetCreator> findByIdAndDatasetVersionId(UUID id, UUID datasetVersionId);
 
+    long countByDatasetVersionId(UUID datasetVersionId);
+
     boolean existsByDatasetVersionIdAndPosition(UUID datasetVersionId, Integer position);
 
     boolean existsByDatasetVersionIdAndPositionAndIdNot(
