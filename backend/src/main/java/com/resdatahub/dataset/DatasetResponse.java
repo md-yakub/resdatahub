@@ -5,11 +5,8 @@ import java.util.UUID;
 
 public record DatasetResponse(
         UUID id,
-        String title,
-        String description,
-        UUID organizationId,
-        String organizationName,
-        DatasetStatus status,
+        DatasetOrganizationSummary organization,
+        DatasetVersionSummary latestVersion,
         Instant createdAt,
         Instant updatedAt
 ) {

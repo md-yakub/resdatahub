@@ -4,7 +4,7 @@ import com.resdatahub.exception.ResourceNotFoundException;
 import com.resdatahub.organization.Organization;
 import com.resdatahub.organization.OrganizationRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -13,57 +13,62 @@ import java.util.UUID;
 public class DatasetService {
 
     private final DatasetRepository datasetRepository;
+    private final DatasetVersionRepository datasetVersionRepository;
     private final OrganizationRepository organizationRepository;
     private final DatasetMapper datasetMapper;
+    private final DatasetVersionMapper datasetVersionMapper;
 
     public DatasetService(
             DatasetRepository datasetRepository,
+            DatasetVersionRepository datasetVersionRepository,
             OrganizationRepository organizationRepository,
-            DatasetMapper datasetMapper
+            DatasetMapper datasetMapper,
+            DatasetVersionMapper datasetVersionMapper
     ) {
         this.datasetRepository = datasetRepository;
+        this.datasetVersionRepository = datasetVersionRepository;
         this.organizationRepository = organizationRepository;
         this.datasetMapper = datasetMapper;
+        this.datasetVersionMapper = datasetVersionMapper;
     }
 
+    @Transactional
     public DatasetResponse createDataset(CreateDatasetRequest request) {
         Organization organization = findOrganization(request.organizationId());
         Dataset dataset = datasetMapper.toEntity(request, organization);
         Dataset savedDataset = datasetRepository.save(dataset);
-        return datasetMapper.toResponse(savedDataset);
+
+        DatasetVersion firstVersion = datasetVersionMapper.toFirstVersion(
+                savedDataset,
+                request.title(),
+                request.description()
+        );
+        DatasetVersion savedVersion = datasetVersionRepository.save(firstVersion);
+
+        return datasetMapper.toResponse(savedDataset, savedVersion);
     }
 
+    @Transactional(readOnly = true)
     public List<DatasetResponse> getDatasets() {
         return datasetRepository.findAll()
                 .stream()
-                .map(datasetMapper::toResponse)
+                .map(this::toResponseWithLatestVersion)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public DatasetResponse getDataset(UUID id) {
         Dataset dataset = findDataset(id);
-        return datasetMapper.toResponse(dataset);
+        return toResponseWithLatestVersion(dataset);
     }
 
+    @Transactional(readOnly = true)
     public DatasetResponse updateDataset(UUID id, UpdateDatasetRequest request) {
         Dataset dataset = findDataset(id);
-
-        if (request.title() != null) {
-            updateTitle(dataset, request.title());
-        }
-
-        if (request.description() != null) {
-            dataset.setDescription(request.description());
-        }
-
-        if (request.status() != null) {
-            dataset.setStatus(request.status());
-        }
-
-        Dataset savedDataset = datasetRepository.save(dataset);
-        return datasetMapper.toResponse(savedDataset);
+        return toResponseWithLatestVersion(dataset);
     }
 
+    @Transactional
     public void deleteDataset(UUID id) {
         Dataset dataset = findDataset(id);
         datasetRepository.delete(dataset);
@@ -79,11 +84,11 @@ public class DatasetService {
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
     }
 
-    private void updateTitle(Dataset dataset, String title) {
-        if (!StringUtils.hasText(title)) {
-            throw new IllegalArgumentException("Dataset title is required");
-        }
+    private DatasetResponse toResponseWithLatestVersion(Dataset dataset) {
+        DatasetVersion latestVersion = datasetVersionRepository
+                .findTopByDatasetIdOrderByCreatedAtDesc(dataset.getId())
+                .orElse(null);
 
-        dataset.setTitle(title);
+        return datasetMapper.toResponse(dataset, latestVersion);
     }
 }
