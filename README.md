@@ -38,13 +38,32 @@ Database settings:
 - Username: `resdatahub`
 - Password: `resdatahub`
 
-## Start the Backend
+## Local Development
 
-From the backend directory:
+Docker Compose uses `infrastructure/.env` for PostgreSQL container settings. Spring Boot does not read that file.
+
+Copy the local Spring Boot configuration example:
+
+```powershell
+Copy-Item backend\src\main\resources\application-local.properties.example backend\src\main\resources\application-local.properties
+```
+
+Replace the password in `backend/src/main/resources/application-local.properties`.
+
+Start the application with the local profile:
 
 ```powershell
 cd backend
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+## Start the Backend
+
+For local development, start the backend with the `local` profile:
+
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
 ## Health Endpoints
