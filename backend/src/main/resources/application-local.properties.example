@@ -6,3 +6,5 @@ resdatahub.minio.endpoint=http://127.0.0.1:9000
 resdatahub.minio.access-key=minio_user
 resdatahub.minio.secret-key=minio_password
 resdatahub.minio.bucket=resdatahub-files
+
+resdatahub.public-base-url=http://localhost:8080
