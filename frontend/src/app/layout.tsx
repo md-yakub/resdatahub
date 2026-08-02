@@ -23,6 +23,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
               <Link href="/datasets" className="hover:text-ink">
                 Datasets
               </Link>
+              <Link href="/sparql" className="hover:text-ink">
+                Knowledge Graph
+              </Link>
               <Link href="/manage" className="hover:text-ink">
                 Manage
               </Link>

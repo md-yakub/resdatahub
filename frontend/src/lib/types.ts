@@ -236,3 +236,21 @@ export interface DatasetFileResponse {
   category: DatasetFileCategory;
   createdAt: string;
 }
+
+export interface SparqlQueryRequest {
+  query: string;
+}
+
+export interface SparqlQueryResponse {
+  variables: string[];
+  rows: SparqlResultRow[];
+  rowCount: number;
+  truncated: boolean;
+}
+
+export type SparqlResultRow = Record<string, string | null>;
+
+export interface SparqlExampleResponse {
+  title: string;
+  query: string;
+}

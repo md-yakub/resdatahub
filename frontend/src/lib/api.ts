@@ -18,6 +18,8 @@ import type {
   PublicDatasetResponse,
   PublicSearchResponse,
   SearchSort,
+  SparqlExampleResponse,
+  SparqlQueryResponse,
   UpdateDatasetVersionRequest
 } from "./types";
 
@@ -216,6 +218,14 @@ export async function publishVersion(datasetId: string, versionId: string) {
     `/api/datasets/${datasetId}/versions/${versionId}/publish`,
     "POST"
   );
+}
+
+export async function getSparqlExamples() {
+  return fetchJson<SparqlExampleResponse[]>(buildBackendUrl("/api/public/sparql/examples"));
+}
+
+export async function executeSparqlQuery(query: string) {
+  return requestJson<SparqlQueryResponse>("/api/public/sparql", "POST", { query });
 }
 
 async function requestJson<T>(path: string, method: string, body?: unknown): Promise<T> {
