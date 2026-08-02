@@ -118,4 +118,10 @@ public interface DatasetVersionRepository extends JpaRepository<DatasetVersion, 
     @EntityGraph(attributePaths = {"dataset", "dataset.organization", "license"})
     @Query("select v from DatasetVersion v where v.id in :ids")
     List<DatasetVersion> findAllByIdInWithDatasetOrganizationAndLicense(@Param("ids") Collection<UUID> ids);
+
+    @Query(
+            value = "select v.id from DatasetVersion v where v.status = :status",
+            countQuery = "select count(v.id) from DatasetVersion v where v.status = :status"
+    )
+    Page<UUID> findIdsByStatus(@Param("status") DatasetVersionStatus status, Pageable pageable);
 }
