@@ -1,8 +1,10 @@
 package com.resdatahub.metadata.controller;
 
 import com.resdatahub.metadata.dto.CatalogInfoResponse;
+import com.resdatahub.metadata.dto.CatalogValidationResponse;
 import com.resdatahub.metadata.dto.MetadataFormat;
 import com.resdatahub.metadata.service.CatalogMetadataService;
+import com.resdatahub.metadata.service.CatalogValidationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,9 +25,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class CatalogMetadataController {
 
     private final CatalogMetadataService catalogMetadataService;
+    private final CatalogValidationService catalogValidationService;
 
-    public CatalogMetadataController(CatalogMetadataService catalogMetadataService) {
+    public CatalogMetadataController(
+            CatalogMetadataService catalogMetadataService,
+            CatalogValidationService catalogValidationService
+    ) {
         this.catalogMetadataService = catalogMetadataService;
+        this.catalogValidationService = catalogValidationService;
     }
 
     @GetMapping(
@@ -73,6 +80,20 @@ public class CatalogMetadataController {
     )
     public CatalogInfoResponse getCatalogInfo() {
         return catalogMetadataService.getCatalogInfo();
+    }
+
+    @GetMapping("/validation")
+    @Operation(
+            summary = "Validate public catalog metadata",
+            description = "Runs lightweight validation for the ResDataHub DCAT harvesting profile.",
+            responses = @ApiResponse(
+                    responseCode = "200",
+                    description = "Catalog validation returned.",
+                    content = @Content(schema = @Schema(implementation = CatalogValidationResponse.class))
+            )
+    )
+    public CatalogValidationResponse validateCatalog() {
+        return catalogValidationService.validateCatalog();
     }
 
     private MetadataFormat selectFormat(MetadataFormat format, String acceptHeader) {
