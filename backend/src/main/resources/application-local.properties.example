@@ -8,6 +8,7 @@ resdatahub.minio.secret-key=minio_password
 resdatahub.minio.bucket=resdatahub-files
 
 resdatahub.public-base-url=http://localhost:8080
+resdatahub.cors.allowed-origins=http://localhost:3000
 resdatahub.catalog.title=ResDataHub Catalog
 resdatahub.catalog.description=Catalog of published ResDataHub dataset versions.
 resdatahub.catalog.publisher-name=ResDataHub
