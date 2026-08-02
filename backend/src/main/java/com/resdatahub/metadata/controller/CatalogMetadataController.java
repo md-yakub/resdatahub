@@ -1,15 +1,19 @@
 package com.resdatahub.metadata.controller;
 
+import com.resdatahub.metadata.dto.CatalogInfoResponse;
 import com.resdatahub.metadata.dto.MetadataFormat;
 import com.resdatahub.metadata.service.CatalogMetadataService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,21 +41,45 @@ public class CatalogMetadataController {
             }
     )
     public ResponseEntity<String> exportCatalogMetadata(
-            @Parameter(description = "RDF serialization format.") @RequestParam(defaultValue = "TURTLE") MetadataFormat format,
+            @Parameter(description = "RDF serialization format.") @RequestParam(required = false) MetadataFormat format,
             @Parameter(description = "Zero-based page number.") @RequestParam(defaultValue = "0") Integer page,
-            @Parameter(description = "Page size. Maximum is 500.") @RequestParam(defaultValue = "100") Integer size
+            @Parameter(description = "Page size. Maximum is 500.") @RequestParam(defaultValue = "100") Integer size,
+            @RequestHeader(value = HttpHeaders.ACCEPT, required = false) String acceptHeader
     ) {
+        MetadataFormat selectedFormat = selectFormat(format, acceptHeader);
         CatalogMetadataService.CatalogMetadataResult result = catalogMetadataService.exportCatalog(
-                format,
+                selectedFormat,
                 page,
                 size
         );
 
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(format.getContentType()))
+                .contentType(MediaType.parseMediaType(selectedFormat.getContentType()))
                 .header("X-Total-Elements", String.valueOf(result.totalElements()))
                 .header("X-Page", String.valueOf(result.page()))
                 .header("X-Size", String.valueOf(result.size()))
                 .body(result.metadata());
+    }
+
+    @GetMapping("/info")
+    @Operation(
+            summary = "Get public catalog information",
+            description = "Returns public information about the ResDataHub metadata catalog.",
+            responses = @ApiResponse(
+                    responseCode = "200",
+                    description = "Catalog information returned.",
+                    content = @Content(schema = @Schema(implementation = CatalogInfoResponse.class))
+            )
+    )
+    public CatalogInfoResponse getCatalogInfo() {
+        return catalogMetadataService.getCatalogInfo();
+    }
+
+    private MetadataFormat selectFormat(MetadataFormat format, String acceptHeader) {
+        if (format != null) {
+            return format;
+        }
+
+        return MetadataFormat.fromAcceptHeader(acceptHeader);
     }
 }

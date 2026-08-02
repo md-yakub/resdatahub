@@ -87,11 +87,11 @@ public class RdfMetadataBuilder {
         return versionResource;
     }
 
-    public Resource addCatalogPublisher(Model model) {
-        Resource publisher = model.createResource("%s/id/organization/resdatahub".formatted(publicBaseUrl));
+    public Resource addCatalogPublisher(Model model, String publisherUri, String publisherName) {
+        Resource publisher = createCatalogPublisherResource(model, publisherUri);
         publisher
                 .addProperty(RDF.type, model.createResource(FOAF + "Organization"))
-                .addProperty(property(model, FOAF, "name"), "ResDataHub");
+                .addProperty(property(model, FOAF, "name"), publisherName);
         return publisher;
     }
 
@@ -218,6 +218,14 @@ public class RdfMetadataBuilder {
                 versionId,
                 fileId
         );
+    }
+
+    private Resource createCatalogPublisherResource(Model model, String publisherUri) {
+        if (publisherUri == null || publisherUri.isBlank()) {
+            return model.createResource();
+        }
+
+        return model.createResource(publisherUri);
     }
 
     private String trimTrailingSlashes(String value) {

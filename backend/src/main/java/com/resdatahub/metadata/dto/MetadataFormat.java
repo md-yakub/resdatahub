@@ -1,6 +1,11 @@
 package com.resdatahub.metadata.dto;
 
 import org.apache.jena.riot.RDFFormat;
+import org.springframework.http.MediaType;
+import org.springframework.util.MimeTypeUtils;
+
+import java.util.List;
+import java.util.Optional;
 
 public enum MetadataFormat {
     TURTLE("text/turtle", RDFFormat.TURTLE_PRETTY),
@@ -21,5 +26,35 @@ public enum MetadataFormat {
 
     public RDFFormat getRdfFormat() {
         return rdfFormat;
+    }
+
+    public static MetadataFormat fromAcceptHeader(String acceptHeader) {
+        if (acceptHeader == null || acceptHeader.isBlank()) {
+            return TURTLE;
+        }
+
+        List<MediaType> mediaTypes = MediaType.parseMediaTypes(acceptHeader);
+        MimeTypeUtils.sortBySpecificity(mediaTypes);
+
+        return mediaTypes.stream()
+                .map(MetadataFormat::fromMediaType)
+                .flatMap(Optional::stream)
+                .findFirst()
+                .orElse(TURTLE);
+    }
+
+    private static Optional<MetadataFormat> fromMediaType(MediaType mediaType) {
+        if (mediaType.isWildcardType()) {
+            return Optional.of(TURTLE);
+        }
+
+        for (MetadataFormat format : values()) {
+            MediaType supportedMediaType = MediaType.parseMediaType(format.contentType);
+            if (mediaType.isCompatibleWith(supportedMediaType)) {
+                return Optional.of(format);
+            }
+        }
+
+        return Optional.empty();
     }
 }

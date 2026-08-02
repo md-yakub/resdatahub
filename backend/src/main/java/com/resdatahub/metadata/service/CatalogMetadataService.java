@@ -1,5 +1,6 @@
 package com.resdatahub.metadata.service;
 
+import com.resdatahub.metadata.dto.CatalogInfoResponse;
 import com.resdatahub.metadata.dto.MetadataFormat;
 import com.resdatahub.metadata.rdf.RdfMetadataBuilder;
 import com.resdatahub.version.entity.DatasetVersion;
@@ -11,6 +12,7 @@ import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.vocabulary.RDF;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,13 +39,40 @@ public class CatalogMetadataService {
 
     private final DatasetVersionRepository datasetVersionRepository;
     private final RdfMetadataBuilder rdfMetadataBuilder;
+    private final String publicBaseUrl;
+    private final String title;
+    private final String description;
+    private final String publisherName;
+    private final String publisherUri;
+    private final String homepage;
+    private final String language;
+    private final Instant issued;
+    private final String contact;
 
     public CatalogMetadataService(
             DatasetVersionRepository datasetVersionRepository,
-            RdfMetadataBuilder rdfMetadataBuilder
+            RdfMetadataBuilder rdfMetadataBuilder,
+            @Value("${resdatahub.public-base-url}") String publicBaseUrl,
+            @Value("${resdatahub.catalog.title}") String title,
+            @Value("${resdatahub.catalog.description}") String description,
+            @Value("${resdatahub.catalog.publisher-name}") String publisherName,
+            @Value("${resdatahub.catalog.publisher-uri:}") String publisherUri,
+            @Value("${resdatahub.catalog.homepage}") String homepage,
+            @Value("${resdatahub.catalog.language}") String language,
+            @Value("${resdatahub.catalog.issued}") String issued,
+            @Value("${resdatahub.catalog.contact:}") String contact
     ) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.rdfMetadataBuilder = rdfMetadataBuilder;
+        this.publicBaseUrl = trimTrailingSlashes(publicBaseUrl);
+        this.title = title;
+        this.description = description;
+        this.publisherName = publisherName;
+        this.publisherUri = publisherUri;
+        this.homepage = homepage;
+        this.language = language;
+        this.issued = Instant.parse(issued);
+        this.contact = contact;
     }
 
     @Transactional(readOnly = true)
@@ -72,6 +101,21 @@ public class CatalogMetadataService {
         );
     }
 
+    public CatalogInfoResponse getCatalogInfo() {
+        return new CatalogInfoResponse(
+                title,
+                "DCAT",
+                "/api/public/catalog/metadata",
+                List.of(
+                        MetadataFormat.TURTLE.name(),
+                        MetadataFormat.JSON_LD.name(),
+                        MetadataFormat.RDF_XML.name()
+                ),
+                publicBaseUrl,
+                blankToNull(contact)
+        );
+    }
+
     private List<DatasetVersion> getVersionsInPageOrder(List<UUID> versionIds) {
         if (versionIds.isEmpty()) {
             return List.of();
@@ -94,15 +138,15 @@ public class CatalogMetadataService {
         Resource catalog = model.createResource(rdfMetadataBuilder.catalogUri());
         catalog
                 .addProperty(RDF.type, model.createResource(RdfMetadataBuilder.DCAT + "Catalog"))
-                .addProperty(rdfMetadataBuilder.property(model, RdfMetadataBuilder.DCT, "title"), "ResDataHub Catalog")
-                .addProperty(
-                        rdfMetadataBuilder.property(model, RdfMetadataBuilder.DCT, "description"),
-                        "Catalog of published ResDataHub dataset versions."
-                )
+                .addProperty(rdfMetadataBuilder.property(model, RdfMetadataBuilder.DCT, "title"), title)
+                .addProperty(rdfMetadataBuilder.property(model, RdfMetadataBuilder.DCT, "description"), description)
                 .addProperty(
                         rdfMetadataBuilder.property(model, RdfMetadataBuilder.DCT, "publisher"),
-                        rdfMetadataBuilder.addCatalogPublisher(model)
-                );
+                        rdfMetadataBuilder.addCatalogPublisher(model, publisherUri, publisherName)
+                )
+                .addProperty(rdfMetadataBuilder.property(model, RdfMetadataBuilder.DCT, "language"), language);
+
+        addHomepage(model, catalog);
 
         addCatalogDates(model, catalog, versions);
 
@@ -115,10 +159,6 @@ public class CatalogMetadataService {
     }
 
     private void addCatalogDates(Model model, Resource catalog, List<DatasetVersion> versions) {
-        Instant issued = versions.stream()
-                .map(DatasetVersion::getPublishedAt)
-                .min(Comparator.naturalOrder())
-                .orElse(Instant.now());
         Instant modified = versions.stream()
                 .map(DatasetVersion::getUpdatedAt)
                 .max(Comparator.naturalOrder())
@@ -126,6 +166,15 @@ public class CatalogMetadataService {
 
         rdfMetadataBuilder.addInstant(model, catalog, rdfMetadataBuilder.property(model, RdfMetadataBuilder.DCT, "issued"), issued);
         rdfMetadataBuilder.addInstant(model, catalog, rdfMetadataBuilder.property(model, RdfMetadataBuilder.DCT, "modified"), modified);
+    }
+
+    private void addHomepage(Model model, Resource catalog) {
+        if (homepage != null && !homepage.isBlank()) {
+            catalog.addProperty(
+                    rdfMetadataBuilder.property(model, RdfMetadataBuilder.FOAF, "homepage"),
+                    model.createResource(homepage)
+            );
+        }
     }
 
     private int normalizePage(Integer page) {
@@ -142,6 +191,24 @@ public class CatalogMetadataService {
         }
 
         return Math.min(size, MAX_SIZE);
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value;
+    }
+
+    private String trimTrailingSlashes(String value) {
+        String trimmedValue = value.trim();
+
+        while (trimmedValue.endsWith("/")) {
+            trimmedValue = trimmedValue.substring(0, trimmedValue.length() - 1);
+        }
+
+        return trimmedValue;
     }
 
     public record CatalogMetadataResult(
