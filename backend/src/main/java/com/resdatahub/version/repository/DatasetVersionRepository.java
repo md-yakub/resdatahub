@@ -41,6 +41,12 @@ public interface DatasetVersionRepository extends JpaRepository<DatasetVersion, 
                     join d.organization o
                     left join v.license l
                     where v.status = :status
+                      and v.publishedAt = (
+                          select max(latestVersion.publishedAt)
+                          from DatasetVersion latestVersion
+                          where latestVersion.dataset = v.dataset
+                            and latestVersion.status = :status
+                      )
                       and (:organizationId is null or o.id = :organizationId)
                       and (:keyword is null or exists (
                           select 1
@@ -79,6 +85,12 @@ public interface DatasetVersionRepository extends JpaRepository<DatasetVersion, 
                     join d.organization o
                     left join v.license l
                     where v.status = :status
+                      and v.publishedAt = (
+                          select max(latestVersion.publishedAt)
+                          from DatasetVersion latestVersion
+                          where latestVersion.dataset = v.dataset
+                            and latestVersion.status = :status
+                      )
                       and (:organizationId is null or o.id = :organizationId)
                       and (:keyword is null or exists (
                           select 1
