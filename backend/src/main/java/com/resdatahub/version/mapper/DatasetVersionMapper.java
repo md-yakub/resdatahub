@@ -1,0 +1,66 @@
+package com.resdatahub.version.mapper;
+
+import com.resdatahub.dataset.entity.Dataset;
+import com.resdatahub.license.dto.LicenseResponse;
+import com.resdatahub.license.entity.License;
+import com.resdatahub.version.dto.CreateDatasetVersionRequest;
+import com.resdatahub.version.dto.DatasetVersionResponse;
+import com.resdatahub.version.entity.DatasetVersion;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class DatasetVersionMapper {
+
+    public DatasetVersion toFirstVersion(Dataset dataset, String title, String description) {
+        DatasetVersion version = new DatasetVersion();
+        version.setDataset(dataset);
+        version.setVersionNumber("1.0");
+        version.setTitle(title);
+        version.setDescription(description == null ? "" : description);
+        version.setChangeNote("Initial version");
+        return version;
+    }
+
+    public DatasetVersion toEntity(CreateDatasetVersionRequest request, Dataset dataset) {
+        DatasetVersion version = new DatasetVersion();
+        version.setDataset(dataset);
+        version.setVersionNumber(request.versionNumber());
+        version.setTitle(request.title());
+        version.setDescription(request.description());
+        version.setChangeNote(request.changeNote());
+        return version;
+    }
+
+    public DatasetVersionResponse toResponse(DatasetVersion version) {
+        return new DatasetVersionResponse(
+                version.getId(),
+                version.getDataset().getId(),
+                version.getVersionNumber(),
+                version.getTitle(),
+                version.getDescription(),
+                version.getChangeNote(),
+                version.getStatus(),
+                toLicenseResponse(version.getLicense()),
+                version.getCreatedAt(),
+                version.getUpdatedAt(),
+                version.getPublishedAt()
+        );
+    }
+
+    private LicenseResponse toLicenseResponse(License license) {
+        if (license == null) {
+            return null;
+        }
+
+        return new LicenseResponse(
+                license.getId(),
+                license.getCode(),
+                license.getName(),
+                license.getUri(),
+                license.isActive(),
+                license.getCreatedAt(),
+                license.getUpdatedAt()
+        );
+    }
+}
