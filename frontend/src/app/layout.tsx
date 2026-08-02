@@ -23,6 +23,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
               <Link href="/datasets" className="hover:text-ink">
                 Datasets
               </Link>
+              <Link href="/manage" className="hover:text-ink">
+                Manage
+              </Link>
               {apiBaseUrl && (
                 <a href={`${apiBaseUrl}/api/public/catalog/metadata`} className="hover:text-ink">
                   Catalog RDF

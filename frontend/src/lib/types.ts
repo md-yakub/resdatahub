@@ -1,6 +1,8 @@
 export type SearchSort = "NEWEST" | "OLDEST" | "TITLE_ASC" | "TITLE_DESC";
 export type CitationFormat = "APA" | "TEXT" | "BIBTEX" | "RIS";
 export type MetadataFormat = "TURTLE" | "JSON_LD" | "RDF_XML";
+export type DatasetVersionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "PUBLISHED" | "WITHDRAWN";
+export type DatasetFileCategory = "RAW" | "PROCESSED" | "DOCUMENTATION" | "SUPPLEMENTARY";
 
 export interface CatalogInfo {
   title: string;
@@ -123,4 +125,114 @@ export interface PublicFile {
 export interface CitationResponse {
   format: CitationFormat;
   citation: string;
+}
+
+export interface OrganizationResponse {
+  id: string;
+  name: string;
+  shortName: string | null;
+  description: string | null;
+  website: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DatasetResponse {
+  id: string;
+  organization: DatasetOrganizationSummary;
+  latestVersion: DatasetVersionSummary | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DatasetOrganizationSummary {
+  id: string;
+  name: string;
+  shortName: string | null;
+}
+
+export interface DatasetVersionSummary {
+  id: string;
+  versionNumber: string;
+  title: string;
+  status: DatasetVersionStatus;
+  publishedAt: string | null;
+}
+
+export interface CreateDatasetRequest {
+  organizationId: string;
+  title: string;
+  description: string;
+}
+
+export interface DatasetVersionResponse {
+  id: string;
+  datasetId: string;
+  versionNumber: string;
+  title: string;
+  description: string;
+  changeNote: string | null;
+  status: DatasetVersionStatus;
+  license: LicenseResponse | null;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+}
+
+export interface UpdateDatasetVersionRequest {
+  versionNumber?: string;
+  title?: string;
+  description?: string;
+  changeNote?: string;
+}
+
+export interface DatasetCreatorResponse {
+  id: string;
+  givenName: string;
+  familyName: string;
+  affiliation: string | null;
+  orcid: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDatasetCreatorRequest {
+  givenName: string;
+  familyName: string;
+  affiliation?: string;
+  orcid?: string;
+  position: number;
+}
+
+export type UpdateDatasetCreatorRequest = CreateDatasetCreatorRequest;
+
+export interface DatasetKeywordResponse {
+  id: string;
+  value: string;
+  createdAt: string;
+}
+
+export interface CreateDatasetKeywordRequest {
+  value: string;
+}
+
+export interface LicenseResponse {
+  id: string;
+  code: string;
+  name: string;
+  uri: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DatasetFileResponse {
+  id: string;
+  originalFilename: string;
+  contentType: string;
+  fileSize: number;
+  sha256: string;
+  category: DatasetFileCategory;
+  createdAt: string;
 }

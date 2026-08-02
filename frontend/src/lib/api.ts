@@ -3,10 +3,22 @@ import type {
   CatalogValidation,
   CitationFormat,
   CitationResponse,
+  CreateDatasetCreatorRequest,
+  CreateDatasetKeywordRequest,
+  CreateDatasetRequest,
+  DatasetCreatorResponse,
+  DatasetFileCategory,
+  DatasetFileResponse,
+  DatasetKeywordResponse,
+  DatasetResponse,
+  DatasetVersionResponse,
+  LicenseResponse,
   MetadataFormat,
+  OrganizationResponse,
   PublicDatasetResponse,
   PublicSearchResponse,
-  SearchSort
+  SearchSort,
+  UpdateDatasetVersionRequest
 } from "./types";
 
 export interface SearchParams {
@@ -87,26 +99,184 @@ export async function getCitation(datasetId: string, versionId: string, format: 
   );
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { cache: "no-store" });
+export async function getOrganizations() {
+  return fetchJson<OrganizationResponse[]>(buildBackendUrl("/api/organizations"));
+}
+
+export async function getDatasets() {
+  return fetchJson<DatasetResponse[]>(buildBackendUrl("/api/datasets"));
+}
+
+export async function getDataset(datasetId: string) {
+  return fetchJson<DatasetResponse>(buildBackendUrl(`/api/datasets/${datasetId}`));
+}
+
+export async function createDataset(request: CreateDatasetRequest) {
+  return requestJson<DatasetResponse>(`/api/datasets`, "POST", request);
+}
+
+export async function getDatasetVersion(datasetId: string, versionId: string) {
+  return fetchJson<DatasetVersionResponse>(
+    buildBackendUrl(`/api/datasets/${datasetId}/versions/${versionId}`)
+  );
+}
+
+export async function updateDatasetVersion(datasetId: string, versionId: string, request: UpdateDatasetVersionRequest) {
+  return requestJson<DatasetVersionResponse>(
+    `/api/datasets/${datasetId}/versions/${versionId}`,
+    "PATCH",
+    request
+  );
+}
+
+export async function getCreators(datasetId: string, versionId: string) {
+  return fetchJson<DatasetCreatorResponse[]>(
+    buildBackendUrl(`/api/datasets/${datasetId}/versions/${versionId}/creators`)
+  );
+}
+
+export async function addCreator(datasetId: string, versionId: string, request: CreateDatasetCreatorRequest) {
+  return requestJson<DatasetCreatorResponse>(
+    `/api/datasets/${datasetId}/versions/${versionId}/creators`,
+    "POST",
+    request
+  );
+}
+
+export async function updateCreator(
+  datasetId: string,
+  versionId: string,
+  creatorId: string,
+  request: CreateDatasetCreatorRequest
+) {
+  return requestJson<DatasetCreatorResponse>(
+    `/api/datasets/${datasetId}/versions/${versionId}/creators/${creatorId}`,
+    "PATCH",
+    request
+  );
+}
+
+export async function deleteCreator(datasetId: string, versionId: string, creatorId: string) {
+  return requestNoContent(`/api/datasets/${datasetId}/versions/${versionId}/creators/${creatorId}`, "DELETE");
+}
+
+export async function getKeywords(datasetId: string, versionId: string) {
+  return fetchJson<DatasetKeywordResponse[]>(
+    buildBackendUrl(`/api/datasets/${datasetId}/versions/${versionId}/keywords`)
+  );
+}
+
+export async function addKeyword(datasetId: string, versionId: string, request: CreateDatasetKeywordRequest) {
+  return requestJson<DatasetKeywordResponse>(
+    `/api/datasets/${datasetId}/versions/${versionId}/keywords`,
+    "POST",
+    request
+  );
+}
+
+export async function deleteKeyword(datasetId: string, versionId: string, keywordId: string) {
+  return requestNoContent(`/api/datasets/${datasetId}/versions/${versionId}/keywords/${keywordId}`, "DELETE");
+}
+
+export async function getLicenses() {
+  return fetchJson<LicenseResponse[]>(buildBackendUrl("/api/licenses"));
+}
+
+export async function updateVersionLicense(datasetId: string, versionId: string, licenseId: string) {
+  return requestJson<DatasetVersionResponse>(
+    `/api/datasets/${datasetId}/versions/${versionId}/license`,
+    "PATCH",
+    { licenseId }
+  );
+}
+
+export async function getFiles(datasetId: string, versionId: string) {
+  return fetchJson<DatasetFileResponse[]>(
+    buildBackendUrl(`/api/datasets/${datasetId}/versions/${versionId}/files`)
+  );
+}
+
+export async function uploadFile(datasetId: string, versionId: string, file: File, category: DatasetFileCategory) {
+  const formData = new FormData();
+  formData.set("file", file);
+  formData.set("category", category);
+
+  return requestMultipart<DatasetFileResponse>(
+    `/api/datasets/${datasetId}/versions/${versionId}/files`,
+    formData
+  );
+}
+
+export async function deleteFile(datasetId: string, versionId: string, fileId: string) {
+  return requestNoContent(`/api/datasets/${datasetId}/versions/${versionId}/files/${fileId}`, "DELETE");
+}
+
+export async function publishVersion(datasetId: string, versionId: string) {
+  return requestJson<DatasetVersionResponse>(
+    `/api/datasets/${datasetId}/versions/${versionId}/publish`,
+    "POST"
+  );
+}
+
+async function requestJson<T>(path: string, method: string, body?: unknown): Promise<T> {
+  return fetchJson<T>(
+    buildBackendUrl(path),
+    {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    }
+  );
+}
+
+async function requestMultipart<T>(path: string, body: FormData): Promise<T> {
+  return fetchJson<T>(
+    buildBackendUrl(path),
+    {
+      method: "POST",
+      body
+    }
+  );
+}
+
+async function requestNoContent(path: string, method: string): Promise<void> {
+  const response = await fetch(buildBackendUrl(path), { method, cache: "no-store" });
 
   if (!response.ok) {
-    let message = response.statusText;
+    throw await buildApiError(response);
+  }
+}
 
-    try {
-      const body = await response.json();
-      if (typeof body.message === "string") {
-        message = body.message;
-      }
-    } catch {
-      const body = await response.text();
-      if (body) {
-        message = body;
-      }
-    }
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, { cache: "no-store", ...init });
 
-    throw new Error(`Request failed with status ${response.status}: ${message}`);
+  if (!response.ok) {
+    throw await buildApiError(response);
   }
 
   return response.json() as Promise<T>;
+}
+
+async function buildApiError(response: Response) {
+  const text = await response.text();
+  let message = response.statusText;
+
+  if (text) {
+    try {
+      const body = JSON.parse(text) as { message?: string; error?: string };
+      message = body.message ?? body.error ?? text;
+    } catch {
+      message = text;
+    }
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.error("API request failed", {
+      status: response.status,
+      statusText: response.statusText,
+      message
+    });
+  }
+
+  return new Error(`Request failed with status ${response.status}: ${message}`);
 }
