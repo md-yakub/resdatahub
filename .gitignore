@@ -2,6 +2,12 @@
 target/
 .mvn/wrapper/maven-wrapper.jar
 
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+
 # Environment files
 .env
 .env.*
