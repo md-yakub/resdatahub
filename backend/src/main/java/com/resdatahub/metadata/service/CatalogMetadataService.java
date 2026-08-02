@@ -101,6 +101,14 @@ public class CatalogMetadataService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public Model buildLatestPublishedCatalogModel() {
+        List<DatasetVersion> versions = datasetVersionRepository
+                .findLatestPublishedVersionPerDataset(DatasetVersionStatus.PUBLISHED);
+
+        return buildCatalogModel(versions);
+    }
+
     public CatalogInfoResponse getCatalogInfo() {
         return new CatalogInfoResponse(
                 title,
