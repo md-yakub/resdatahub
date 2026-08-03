@@ -1,3 +1,4 @@
+import type cytoscape from "cytoscape";
 import type { KnowledgeGraphNodeType } from "@/lib/types";
 
 export const nodeTypeLabels: Record<KnowledgeGraphNodeType, string> = {
@@ -18,12 +19,12 @@ export const nodeTypeColors: Record<KnowledgeGraphNodeType, string> = {
   file: "#4b5563"
 };
 
-export const nodeTypeShapes: Record<KnowledgeGraphNodeType, string> = {
-  dataset: "round-rectangle",
+export const nodeTypeShapes: Record<KnowledgeGraphNodeType, cytoscape.Css.NodeShape> = {
+  dataset: "roundrectangle",
   organization: "hexagon",
   creator: "ellipse",
   keyword: "diamond",
-  license: "round-rectangle",
+  license: "roundrectangle",
   file: "rectangle"
 };
 

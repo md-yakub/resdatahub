@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import cytoscape from "cytoscape";
-import type { Core, ElementDefinition } from "cytoscape";
+import type { Core, ElementDefinition, NodeSingular } from "cytoscape";
 import fcose from "cytoscape-fcose";
 import { getKnowledgeGraphData } from "@/lib/api";
 import type { KnowledgeGraphData, KnowledgeGraphNodeType } from "@/lib/types";
@@ -129,26 +129,26 @@ export function KnowledgeGraphViewer() {
         {
           selector: "node",
           style: {
-            "background-color": (element) =>
+            "background-color": (element: NodeSingular) =>
               nodeTypeColors[element.data("type") as KnowledgeGraphNodeType] ?? nodeTypeColors.dataset,
             "border-color": "#ffffff",
             "border-width": 2,
             color: "#17202a",
             "font-size": 11,
-            height: (element) => (element.data("type") === "dataset" ? 48 : 38),
+            height: (element: NodeSingular) => (element.data("type") === "dataset" ? 48 : 38),
             label: "data(graphLabel)",
             "min-zoomed-font-size": 8,
             "overlay-padding": 6,
-            shape: (element) =>
+            shape: (element: NodeSingular): cytoscape.Css.NodeShape =>
               nodeTypeShapes[element.data("type") as KnowledgeGraphNodeType] ?? nodeTypeShapes.dataset,
             "text-background-color": "#ffffff",
             "text-background-opacity": 0.9,
-            "text-background-padding": 3,
+            "text-background-padding": "3px",
             "text-margin-y": 6,
-            "text-max-width": 150,
+            "text-max-width": "150px",
             "text-valign": "bottom",
             "text-wrap": "wrap",
-            width: (element) => (element.data("type") === "dataset" ? 74 : 42)
+            width: (element: NodeSingular) => (element.data("type") === "dataset" ? 74 : 42)
           }
         },
         {
@@ -190,7 +190,7 @@ export function KnowledgeGraphViewer() {
             "line-color": "#a8b3c4",
             "text-background-color": "#ffffff",
             "text-background-opacity": 0.95,
-            "text-background-padding": 2,
+            "text-background-padding": "2px",
             "text-margin-y": -8,
             "text-rotation": "autorotate",
             "target-arrow-color": "#a8b3c4",
