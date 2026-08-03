@@ -1,72 +1,106 @@
 # ResDataHub
 
-ResDataHub is a FAIR research data repository for research institutes.
+ResDataHub is a full-stack FAIR research data repository for publishing, managing, discovering, and semantically querying research datasets. It supports dataset versioning, metadata management, FAIR-compliant publication workflows, and Knowledge Graph exploration.
 
-## Monorepo Structure
+## Features
 
-- `backend/` - Spring Boot backend application
-- `frontend/` - Reserved for the future frontend
-- `docs/` - Project documentation
-- `sample-data/` - Sample data for development and demos
-- `infrastructure/` - Docker Compose and infrastructure files
+- Dataset versioning with immutable published releases
+- Draft-to-publication workflow
+- Organization, creator, keyword, and license management
+- Secure file storage with MinIO (S3-compatible)
+- Citation generation (APA, BibTeX, RIS, Plain Text)
+- FAIR metadata export (RDF, Turtle, JSON-LD, RDF/XML)
+- DCAT catalog generation for metadata harvesting
+- Metadata validation for published datasets
+- Apache Jena Knowledge Graph with SPARQL endpoint
+- Public data portal and management dashboard
 
-## Backend Stack
+## Tech Stack
 
+### Backend
 - Java 21
 - Spring Boot
-- Spring Web
 - Spring Data JPA
+- PostgreSQL
 - Flyway
+- Apache Jena
 - Bean Validation
-- Actuator
-- PostgreSQL JDBC driver
-- PostgreSQL 16 through Docker
 
-## Start PostgreSQL
+### Frontend
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
 
-From the repository root:
+### Storage
+- PostgreSQL
+- MinIO (S3-compatible Object Storage)
 
-```powershell
+## Project Structure
+
+```text
+backend/          Spring Boot backend
+frontend/         Next.js frontend
+infrastructure/   Infrastructure configuration
+docs/             Project documentation
+sample-data/      Sample datasets
+```
+
+## Architecture
+
+```text
+                Next.js Frontend
+                       │
+                 REST APIs
+                       │
+              Spring Boot Backend
+         ┌──────────┴──────────┐
+         │                     │
+   PostgreSQL              MinIO Storage
+         │
+         ▼
+ FAIR Metadata (DCAT / RDF)
+         │
+         ▼
+ Apache Jena Knowledge Graph
+         │
+         ▼
+    SPARQL Endpoint
+```
+
+## Main Capabilities
+
+- Manage research datasets and metadata
+- Version and publish datasets
+- Upload and manage research files
+- Generate machine-readable FAIR metadata
+- Export RDF using DCAT vocabulary
+- Generate academic citations
+- Explore published datasets through SPARQL
+- Search and browse datasets via a public portal
+
+## Getting Started
+
+### Infrastructure
+
+```bash
 docker compose -f infrastructure/docker-compose.yml up -d
 ```
 
-PostgreSQL is exposed on host port `5434`.
+### Backend
 
-Database settings:
-
-- Database: `resdatahub`
-- Username: `resdatahub`
-- Password: `resdatahub`
-
-## Local Development
-
-Docker Compose uses `infrastructure/.env` for PostgreSQL container settings. Spring Boot does not read that file.
-
-Copy the local Spring Boot configuration example:
-
-```powershell
-Copy-Item backend\src\main\resources\application-local.properties.example backend\src\main\resources\application-local.properties
-```
-
-Replace the password in `backend/src/main/resources/application-local.properties`.
-
-Start the application with the local profile:
-
-```powershell
+```bash
 cd backend
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-## Start the Backend
+### Frontend
 
-For local development, start the backend with the `local` profile:
-
-```powershell
-cd backend
-.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```bash
+cd frontend
+npm install
+npm run dev
 ```
+## License
 
-## Health Endpoints
-
-- `GET /api/health`
-- `GET /actuator/health`
+This project is developed as a personal portfolio project for learning and demonstrating modern Research Data Management (RDM), FAIR principles, Semantic Web technologies, and full-stack software engineering.
