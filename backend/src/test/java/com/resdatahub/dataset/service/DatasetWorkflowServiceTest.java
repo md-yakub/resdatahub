@@ -107,9 +107,9 @@ class DatasetWorkflowServiceTest {
         });
 
         DatasetResponse response = datasetService.createDataset(new CreateDatasetRequest(
-                ORGANIZATION_ID,
                 "Arctic Sea Ice Thickness Measurements 2025",
-                "Measurements collected during the 2025 Arctic campaign."
+                "Measurements collected during the 2025 Arctic campaign.",
+                ORGANIZATION_ID
         ));
 
         assertThat(response.id()).isEqualTo(DATASET_ID);
