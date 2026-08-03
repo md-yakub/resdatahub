@@ -4,16 +4,18 @@ ResDataHub is a full-stack FAIR research data repository for publishing, managin
 
 ## Features
 
-- Dataset versioning with immutable published releases
-- Draft-to-publication workflow
-- Organization, creator, keyword, and license management
-- Secure file storage with MinIO (S3-compatible)
-- Citation generation (APA, BibTeX, RIS, Plain Text)
-- FAIR metadata export (RDF, Turtle, JSON-LD, RDF/XML)
-- DCAT catalog generation for metadata harvesting
-- Metadata validation for published datasets
-- Apache Jena Knowledge Graph with SPARQL endpoint
-- Public data portal and management dashboard
+- Research dataset lifecycle management with draft and immutable published versions
+- Dataset versioning and controlled publication workflow
+- Organization, creator, keyword, license, and file management
+- Secure file storage using MinIO (S3-compatible object storage)
+- Full-text search and public dataset discovery
+- Citation generation (APA, BibTeX, RIS, and Plain Text)
+- FAIR metadata export in RDF (Turtle, JSON-LD, RDF/XML)
+- DCAT catalog generation for metadata harvesting and interoperability
+- Metadata validation against ResDataHub's FAIR publishing profile
+- Apache Jena Knowledge Graph with a secure read-only SPARQL endpoint
+- Interactive Knowledge Graph visualization with search, filtering, and relationship exploration
+- Public data portal for dataset discovery and management dashboard for repository administration
 
 ## Tech Stack
 
