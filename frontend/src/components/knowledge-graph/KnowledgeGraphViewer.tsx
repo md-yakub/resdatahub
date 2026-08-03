@@ -3,19 +3,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import cytoscape from "cytoscape";
 import type { Core, ElementDefinition } from "cytoscape";
+import fcose from "cytoscape-fcose";
 import { getKnowledgeGraphData } from "@/lib/api";
 import type { KnowledgeGraphData, KnowledgeGraphNodeType } from "@/lib/types";
 import { GraphControls } from "./GraphControls";
 import { GraphDetailsPanel } from "./GraphDetailsPanel";
 import { GraphErrorState } from "./GraphErrorState";
-import { GraphLegend, nodeTypeColors, nodeTypeLabels } from "./GraphLegend";
+import { GraphLegend, nodeTypeColors, nodeTypeLabels, nodeTypeShapes } from "./GraphLegend";
 import { GraphLoadingState } from "./GraphLoadingState";
 
 const allNodeTypes = Object.keys(nodeTypeLabels) as KnowledgeGraphNodeType[];
+const cytoscapeWithExtensions = cytoscape as typeof cytoscape & { resdatahubFcoseRegistered?: boolean };
+
+if (!cytoscapeWithExtensions.resdatahubFcoseRegistered) {
+  cytoscape.use(fcose);
+  cytoscapeWithExtensions.resdatahubFcoseRegistered = true;
+}
 
 export function KnowledgeGraphViewer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
+  const selectedNodeIdRef = useRef<string | null>(null);
   const [graph, setGraph] = useState<KnowledgeGraphData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,19 +87,17 @@ export function KnowledgeGraphViewer() {
       return;
     }
 
-    cy.layout({
-      name: "cose",
-      animate: false,
-      fit: true,
-      padding: 40,
-      nodeRepulsion: 9000,
-      idealEdgeLength: 120
-    }).run();
+    cy.layout(buildLayoutOptions()).run();
   }, []);
 
   const fitGraph = useCallback(() => {
     cyRef.current?.fit(undefined, 40);
   }, []);
+
+  useEffect(() => {
+    selectedNodeIdRef.current = selectedNodeId;
+    applyFocus(cyRef.current, selectedNodeId);
+  }, [selectedNodeId]);
 
   useEffect(() => {
     if (!containerRef.current || !graph) {
@@ -102,7 +108,7 @@ export function KnowledgeGraphViewer() {
       ...visibleGraph.nodes.map((node) => ({
         data: {
           id: node.id,
-          label: node.label,
+          graphLabel: node.graphLabel,
           type: node.type
         }
       })),
@@ -125,27 +131,54 @@ export function KnowledgeGraphViewer() {
           style: {
             "background-color": (element) =>
               nodeTypeColors[element.data("type") as KnowledgeGraphNodeType] ?? nodeTypeColors.dataset,
+            "border-color": "#ffffff",
+            "border-width": 2,
             color: "#17202a",
-            "font-size": 10,
-            height: 34,
-            label: "data(label)",
+            "font-size": 11,
+            height: (element) => (element.data("type") === "dataset" ? 48 : 38),
+            label: "data(graphLabel)",
             "min-zoomed-font-size": 8,
             "overlay-padding": 6,
-            shape: "ellipse",
+            shape: (element) =>
+              nodeTypeShapes[element.data("type") as KnowledgeGraphNodeType] ?? nodeTypeShapes.dataset,
             "text-background-color": "#ffffff",
-            "text-background-opacity": 0.85,
-            "text-background-padding": 2,
-            "text-max-width": 120,
+            "text-background-opacity": 0.9,
+            "text-background-padding": 3,
+            "text-margin-y": 6,
+            "text-max-width": 150,
             "text-valign": "bottom",
             "text-wrap": "wrap",
-            width: 34
+            width: (element) => (element.data("type") === "dataset" ? 74 : 42)
           }
         },
         {
           selector: "node:selected",
           style: {
             "border-color": "#0f766e",
-            "border-width": 4
+            "border-style": "double",
+            "border-width": 5
+          }
+        },
+        {
+          selector: "node.focused, node.neighbor",
+          style: {
+            opacity: 1,
+            "text-background-opacity": 1
+          }
+        },
+        {
+          selector: "edge.neighbor",
+          style: {
+            "line-color": "#0f766e",
+            opacity: 1,
+            "target-arrow-color": "#0f766e",
+            width: 2.5
+          }
+        },
+        {
+          selector: ".faded",
+          style: {
+            opacity: 0.18
           }
         },
         {
@@ -155,27 +188,42 @@ export function KnowledgeGraphViewer() {
             "font-size": 9,
             label: showRelationshipLabels ? "data(label)" : "",
             "line-color": "#a8b3c4",
+            "text-background-color": "#ffffff",
+            "text-background-opacity": 0.95,
+            "text-background-padding": 2,
+            "text-margin-y": -8,
+            "text-rotation": "autorotate",
             "target-arrow-color": "#a8b3c4",
             "target-arrow-shape": "triangle",
             width: 1.5
           }
         }
       ],
-      layout: {
-        name: "cose",
-        animate: false,
-        fit: true,
-        padding: 40,
-        nodeRepulsion: 9000,
-        idealEdgeLength: 120
-      },
+      layout: buildLayoutOptions(),
       minZoom: 0.25,
       maxZoom: 2.5,
       wheelSensitivity: 0.25
     });
 
+    cy.on("mouseover", "node", (event) => {
+      if (!selectedNodeIdRef.current) {
+        applyFocus(cy, event.target.id());
+      }
+    });
+    cy.on("mouseout", "node", () => {
+      if (!selectedNodeIdRef.current) {
+        applyFocus(cy, null);
+      }
+    });
     cy.on("tap", "node", (event) => {
       setSelectedNodeId(event.target.id());
+    });
+    cy.on("dbltap", "node", (event) => {
+      const node = visibleGraph.nodes.find((candidate) => candidate.id === event.target.id());
+
+      if (node?.type === "dataset" && node.publicUrl) {
+        window.location.href = node.publicUrl;
+      }
     });
     cy.on("tap", (event) => {
       if (event.target === cy) {
@@ -184,6 +232,7 @@ export function KnowledgeGraphViewer() {
     });
 
     cyRef.current = cy;
+    applyFocus(cy, selectedNodeIdRef.current);
 
     return () => {
       cy.destroy();
@@ -249,7 +298,7 @@ export function KnowledgeGraphViewer() {
           <div
             ref={containerRef}
             aria-label="Interactive knowledge graph"
-            className="h-[520px] w-full outline-none md:h-[640px]"
+            className="h-[560px] min-h-[520px] w-full outline-none md:h-[700px] xl:h-[780px]"
             tabIndex={0}
           />
         </section>
@@ -264,11 +313,52 @@ export function KnowledgeGraphViewer() {
           <GraphLegend />
         </div>
 
-        <div className="hidden space-y-5 lg:block">
+        <div className="hidden space-y-5 lg:sticky lg:top-5 lg:block lg:self-start">
           <GraphLegend />
           <GraphDetailsPanel node={selectedNode} relationships={selectedRelationships} nodesById={nodesById} />
         </div>
       </div>
     </div>
   );
+}
+
+function buildLayoutOptions() {
+  return {
+    name: "fcose",
+    animate: false,
+    fit: true,
+    padding: 70,
+    randomize: false,
+    nodeSeparation: 120,
+    idealEdgeLength: 180,
+    nodeRepulsion: 12000,
+    edgeElasticity: 0.35,
+    gravity: 0.2,
+    gravityRangeCompound: 1.5,
+    gravityCompound: 1,
+    numIter: 2500
+  };
+}
+
+function applyFocus(cy: Core | null, nodeId: string | null) {
+  if (!cy) {
+    return;
+  }
+
+  cy.elements().removeClass("focused neighbor faded");
+
+  if (!nodeId) {
+    return;
+  }
+
+  const node = cy.getElementById(nodeId);
+
+  if (node.empty()) {
+    return;
+  }
+
+  const neighborhood = node.closedNeighborhood();
+  node.addClass("focused");
+  neighborhood.addClass("neighbor");
+  cy.elements().not(neighborhood).addClass("faded");
 }

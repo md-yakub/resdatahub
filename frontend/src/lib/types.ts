@@ -260,9 +260,11 @@ export type KnowledgeGraphNodeType = "dataset" | "organization" | "creator" | "k
 export interface KnowledgeGraphNode {
   id: string;
   label: string;
+  graphLabel: string;
   type: KnowledgeGraphNodeType;
   uri?: string;
   publicUrl?: string;
+  details: Record<string, string | string[] | null | undefined>;
 }
 
 export interface KnowledgeGraphEdge {

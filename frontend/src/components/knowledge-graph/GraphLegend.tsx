@@ -18,6 +18,15 @@ export const nodeTypeColors: Record<KnowledgeGraphNodeType, string> = {
   file: "#4b5563"
 };
 
+export const nodeTypeShapes: Record<KnowledgeGraphNodeType, string> = {
+  dataset: "round-rectangle",
+  organization: "hexagon",
+  creator: "ellipse",
+  keyword: "diamond",
+  license: "round-rectangle",
+  file: "rectangle"
+};
+
 const nodeTypes = Object.keys(nodeTypeLabels) as KnowledgeGraphNodeType[];
 
 export function GraphLegend() {
@@ -32,10 +41,16 @@ export function GraphLegend() {
               style={{ backgroundColor: nodeTypeColors[type] }}
               aria-hidden="true"
             />
-            <span>{nodeTypeLabels[type]}</span>
+            <span>
+              {nodeTypeLabels[type]} <span className="text-xs">({shapeLabel(nodeTypeShapes[type])})</span>
+            </span>
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+function shapeLabel(shape: string) {
+  return shape.replace("-", " ");
 }

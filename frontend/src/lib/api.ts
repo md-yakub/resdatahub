@@ -237,38 +237,50 @@ export async function getKnowledgeGraphData(maxNodes = 100): Promise<KnowledgeGr
   const responses = await Promise.all(KNOWLEDGE_GRAPH_QUERIES.map((query) => executeSparqlQuery(query)));
 
   responses[0].rows.forEach((row) => {
-    builder.addDataset(row.dataset, row.title);
-    builder.addNode(row.publisher, row.publisherName ?? "Organization", "organization");
-    builder.addEdge(row.dataset, row.publisher, "PUBLISHED_BY");
+    builder.addDataset(row.dataset, row.title, row.versionNumber);
+    builder.addNode(row.publisher, row.publisherName ?? "Organization", "organization", {
+      shortName: row.publisherShortName,
+      homepage: row.publisherHomepage
+    });
+    builder.addEdge(row.dataset, row.publisher, "PUBLISHED_BY", "Published by");
   });
 
   responses[1].rows.forEach((row) => {
-    builder.addDataset(row.dataset, row.title);
-    builder.addNode(row.creator, creatorLabel(row.givenName, row.familyName), "creator");
-    builder.addEdge(row.dataset, row.creator, "CREATED_BY");
+    builder.addDataset(row.dataset, row.title, row.versionNumber);
+    builder.addNode(row.creator, creatorLabel(row.givenName, row.familyName), "creator", {
+      affiliation: row.affiliation,
+      orcid: row.orcid
+    });
+    builder.addEdge(row.dataset, row.creator, "CREATED_BY", "Created by");
   });
 
   responses[2].rows.forEach((row) => {
-    builder.addDataset(row.dataset, row.title);
+    builder.addDataset(row.dataset, row.title, row.versionNumber);
     const keyword = cleanValue(row.keyword);
 
     if (keyword) {
       const keywordId = `keyword:${keyword.toLocaleLowerCase()}`;
       builder.addNode(keywordId, keyword, "keyword");
-      builder.addEdge(row.dataset, keywordId, "HAS_KEYWORD");
+      builder.addEdge(row.dataset, keywordId, "HAS_KEYWORD", "Has keyword");
     }
   });
 
   responses[3].rows.forEach((row) => {
-    builder.addDataset(row.dataset, row.title);
-    builder.addNode(row.license, resourceLabel(row.license), "license");
-    builder.addEdge(row.dataset, row.license, "LICENSED_UNDER");
+    builder.addDataset(row.dataset, row.title, row.versionNumber);
+    builder.addNode(row.license, licenseLabel(row.license), "license");
+    builder.addEdge(row.dataset, row.license, "LICENSED_UNDER", "Licensed under");
   });
 
   responses[4].rows.forEach((row) => {
-    builder.addDataset(row.dataset, row.title);
-    builder.addNode(row.file, row.fileTitle ?? resourceLabel(row.file), "file");
-    builder.addEdge(row.dataset, row.file, "HAS_FILE");
+    builder.addDataset(row.dataset, row.title, row.versionNumber);
+    builder.addNode(row.file, row.fileTitle ?? resourceLabel(row.file), "file", {
+      downloadUrl: row.downloadUrl,
+      contentType: row.contentType,
+      fileSize: row.fileSize,
+      sha256: row.sha256,
+      category: row.category
+    });
+    builder.addEdge(row.dataset, row.file, "HAS_FILE", "Has file");
   });
 
   return builder.toData(responses.some((response) => response.truncated));
@@ -281,12 +293,15 @@ const KNOWLEDGE_GRAPH_QUERIES = [
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-SELECT ?dataset ?title ?publisher ?publisherName
+SELECT ?dataset ?title ?versionNumber ?publisher ?publisherName ?publisherShortName ?publisherHomepage
 WHERE {
   ?dataset a dcat:Dataset ;
     dct:title ?title ;
+    dcat:version ?versionNumber ;
     dct:publisher ?publisher .
   OPTIONAL { ?publisher foaf:name ?publisherName . }
+  OPTIONAL { ?publisher foaf:nick ?publisherShortName . }
+  OPTIONAL { ?publisher foaf:homepage ?publisherHomepage . }
 }
 LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
 `,
@@ -294,23 +309,28 @@ LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-SELECT ?dataset ?title ?creator ?givenName ?familyName
+PREFIX resdatahub: <https://resdatahub.example/vocab#>
+SELECT ?dataset ?title ?versionNumber ?creator ?givenName ?familyName ?affiliation ?orcid
 WHERE {
   ?dataset a dcat:Dataset ;
     dct:title ?title ;
+    dcat:version ?versionNumber ;
     dct:creator ?creator .
   OPTIONAL { ?creator foaf:givenName ?givenName . }
   OPTIONAL { ?creator foaf:familyName ?familyName . }
+  OPTIONAL { ?creator resdatahub:affiliation ?affiliation . }
+  OPTIONAL { ?creator resdatahub:orcid ?orcid . }
 }
 LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
 `,
   `
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
 PREFIX dct: <http://purl.org/dc/terms/>
-SELECT ?dataset ?title ?keyword
+SELECT ?dataset ?title ?versionNumber ?keyword
 WHERE {
   ?dataset a dcat:Dataset ;
     dct:title ?title ;
+    dcat:version ?versionNumber ;
     dcat:keyword ?keyword .
 }
 LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
@@ -318,10 +338,11 @@ LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
   `
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
 PREFIX dct: <http://purl.org/dc/terms/>
-SELECT ?dataset ?title ?license
+SELECT ?dataset ?title ?versionNumber ?license
 WHERE {
   ?dataset a dcat:Dataset ;
     dct:title ?title ;
+    dcat:version ?versionNumber ;
     dct:license ?license .
 }
 LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
@@ -329,13 +350,20 @@ LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
   `
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
 PREFIX dct: <http://purl.org/dc/terms/>
-SELECT ?dataset ?title ?file ?fileTitle ?downloadUrl
+PREFIX spdx: <http://spdx.org/rdf/terms#>
+PREFIX resdatahub: <https://resdatahub.example/vocab#>
+SELECT ?dataset ?title ?versionNumber ?file ?fileTitle ?downloadUrl ?contentType ?fileSize ?sha256 ?category
 WHERE {
   ?dataset a dcat:Dataset ;
     dct:title ?title ;
+    dcat:version ?versionNumber ;
     dcat:distribution ?file .
   OPTIONAL { ?file dct:title ?fileTitle . }
   OPTIONAL { ?file dcat:downloadURL ?downloadUrl . }
+  OPTIONAL { ?file dcat:mediaType ?contentType . }
+  OPTIONAL { ?file dcat:byteSize ?fileSize . }
+  OPTIONAL { ?file spdx:checksumValue ?sha256 . }
+  OPTIONAL { ?file resdatahub:fileCategory ?category . }
 }
 LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
 `
@@ -348,12 +376,32 @@ class KnowledgeGraphBuilder {
 
   constructor(private readonly maxNodes: number) {}
 
-  addDataset(id: string | null, label: string | null) {
-    this.addNode(id, label ?? "Published dataset", "dataset");
+  addDataset(id: string | null, label: string | null, versionNumber: string | null) {
+    this.addNode(id, label ?? "Published dataset", "dataset", {
+      version: versionNumber
+    });
   }
 
-  addNode(id: string | null, label: string, type: KnowledgeGraphNodeType, uriOverride?: string | null) {
-    if (!id || this.nodes.has(id)) {
+  addNode(
+    id: string | null,
+    label: string,
+    type: KnowledgeGraphNodeType,
+    details: Record<string, string | string[] | null | undefined> = {}
+  ) {
+    if (!id) {
+      return;
+    }
+
+    const existingNode = this.nodes.get(id);
+
+    if (existingNode) {
+      this.nodes.set(id, {
+        ...existingNode,
+        details: {
+          ...existingNode.details,
+          ...details
+        }
+      });
       return;
     }
 
@@ -365,21 +413,23 @@ class KnowledgeGraphBuilder {
     this.nodes.set(id, {
       id,
       label,
+      graphLabel: graphLabel(label, type),
       type,
-      uri: uriOverride ?? (isHttpUrl(id) ? id : undefined),
-      publicUrl: type === "dataset" ? datasetPublicUrl(id) : undefined
+      uri: isHttpUrl(id) ? id : undefined,
+      publicUrl: type === "dataset" ? datasetPublicUrl(id) : undefined,
+      details
     });
   }
 
-  addEdge(source: string | null, target: string | null, label: string) {
+  addEdge(source: string | null, target: string | null, type: string, label: string) {
     if (!source || !target || !this.nodes.has(source) || !this.nodes.has(target)) {
       return;
     }
 
-    const id = `${source}:${label}:${target}`;
+    const id = `${source}:${type}:${target}`;
 
     if (!this.edges.has(id)) {
-      this.edges.set(id, { id, source, target, label, type: label });
+      this.edges.set(id, { id, source, target, label, type });
     }
   }
 
@@ -408,6 +458,39 @@ function resourceLabel(value: string | null) {
 
   const cleaned = value.replace(/[\/#]+$/, "");
   return decodeURIComponent(cleaned.substring(Math.max(cleaned.lastIndexOf("/"), cleaned.lastIndexOf("#")) + 1));
+}
+
+function licenseLabel(value: string | null) {
+  if (!value) {
+    return "License";
+  }
+
+  const normalized = value.toLocaleLowerCase();
+
+  if (normalized.includes("creativecommons.org/licenses/by-sa/4.0")) {
+    return "CC-BY-SA-4.0";
+  }
+
+  if (normalized.includes("creativecommons.org/licenses/by/4.0")) {
+    return "CC-BY-4.0";
+  }
+
+  if (normalized.includes("creativecommons.org/publicdomain/zero/1.0")) {
+    return "CC0-1.0";
+  }
+
+  return resourceLabel(value);
+}
+
+function graphLabel(value: string, type: KnowledgeGraphNodeType) {
+  const maxLength = type === "dataset" ? 42 : type === "file" ? 30 : 26;
+  const cleaned = value.trim();
+
+  if (cleaned.length <= maxLength) {
+    return cleaned;
+  }
+
+  return `${cleaned.substring(0, maxLength - 1)}...`;
 }
 
 function datasetPublicUrl(uri: string | null) {
