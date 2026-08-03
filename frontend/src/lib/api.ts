@@ -12,6 +12,10 @@ import type {
   DatasetKeywordResponse,
   DatasetResponse,
   DatasetVersionResponse,
+  KnowledgeGraphData,
+  KnowledgeGraphEdge,
+  KnowledgeGraphNode,
+  KnowledgeGraphNodeType,
   LicenseResponse,
   MetadataFormat,
   OrganizationResponse,
@@ -226,6 +230,198 @@ export async function getSparqlExamples() {
 
 export async function executeSparqlQuery(query: string) {
   return requestJson<SparqlQueryResponse>("/api/public/sparql", "POST", { query });
+}
+
+export async function getKnowledgeGraphData(maxNodes = 100): Promise<KnowledgeGraphData> {
+  const builder = new KnowledgeGraphBuilder(maxNodes);
+  const responses = await Promise.all(KNOWLEDGE_GRAPH_QUERIES.map((query) => executeSparqlQuery(query)));
+
+  responses[0].rows.forEach((row) => {
+    builder.addDataset(row.dataset, row.title);
+    builder.addNode(row.publisher, row.publisherName ?? "Organization", "organization");
+    builder.addEdge(row.dataset, row.publisher, "PUBLISHED_BY");
+  });
+
+  responses[1].rows.forEach((row) => {
+    builder.addDataset(row.dataset, row.title);
+    builder.addNode(row.creator, creatorLabel(row.givenName, row.familyName), "creator");
+    builder.addEdge(row.dataset, row.creator, "CREATED_BY");
+  });
+
+  responses[2].rows.forEach((row) => {
+    builder.addDataset(row.dataset, row.title);
+    const keyword = cleanValue(row.keyword);
+
+    if (keyword) {
+      const keywordId = `keyword:${keyword.toLocaleLowerCase()}`;
+      builder.addNode(keywordId, keyword, "keyword");
+      builder.addEdge(row.dataset, keywordId, "HAS_KEYWORD");
+    }
+  });
+
+  responses[3].rows.forEach((row) => {
+    builder.addDataset(row.dataset, row.title);
+    builder.addNode(row.license, resourceLabel(row.license), "license");
+    builder.addEdge(row.dataset, row.license, "LICENSED_UNDER");
+  });
+
+  responses[4].rows.forEach((row) => {
+    builder.addDataset(row.dataset, row.title);
+    builder.addNode(row.file, row.fileTitle ?? resourceLabel(row.file), "file");
+    builder.addEdge(row.dataset, row.file, "HAS_FILE");
+  });
+
+  return builder.toData(responses.some((response) => response.truncated));
+}
+
+const KNOWLEDGE_GRAPH_QUERY_LIMIT = 100;
+
+const KNOWLEDGE_GRAPH_QUERIES = [
+  `
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX dct: <http://purl.org/dc/terms/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+SELECT ?dataset ?title ?publisher ?publisherName
+WHERE {
+  ?dataset a dcat:Dataset ;
+    dct:title ?title ;
+    dct:publisher ?publisher .
+  OPTIONAL { ?publisher foaf:name ?publisherName . }
+}
+LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
+`,
+  `
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX dct: <http://purl.org/dc/terms/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+SELECT ?dataset ?title ?creator ?givenName ?familyName
+WHERE {
+  ?dataset a dcat:Dataset ;
+    dct:title ?title ;
+    dct:creator ?creator .
+  OPTIONAL { ?creator foaf:givenName ?givenName . }
+  OPTIONAL { ?creator foaf:familyName ?familyName . }
+}
+LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
+`,
+  `
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX dct: <http://purl.org/dc/terms/>
+SELECT ?dataset ?title ?keyword
+WHERE {
+  ?dataset a dcat:Dataset ;
+    dct:title ?title ;
+    dcat:keyword ?keyword .
+}
+LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
+`,
+  `
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX dct: <http://purl.org/dc/terms/>
+SELECT ?dataset ?title ?license
+WHERE {
+  ?dataset a dcat:Dataset ;
+    dct:title ?title ;
+    dct:license ?license .
+}
+LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
+`,
+  `
+PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX dct: <http://purl.org/dc/terms/>
+SELECT ?dataset ?title ?file ?fileTitle ?downloadUrl
+WHERE {
+  ?dataset a dcat:Dataset ;
+    dct:title ?title ;
+    dcat:distribution ?file .
+  OPTIONAL { ?file dct:title ?fileTitle . }
+  OPTIONAL { ?file dcat:downloadURL ?downloadUrl . }
+}
+LIMIT ${KNOWLEDGE_GRAPH_QUERY_LIMIT}
+`
+];
+
+class KnowledgeGraphBuilder {
+  private readonly nodes = new Map<string, KnowledgeGraphNode>();
+  private readonly edges = new Map<string, KnowledgeGraphEdge>();
+  private truncated = false;
+
+  constructor(private readonly maxNodes: number) {}
+
+  addDataset(id: string | null, label: string | null) {
+    this.addNode(id, label ?? "Published dataset", "dataset");
+  }
+
+  addNode(id: string | null, label: string, type: KnowledgeGraphNodeType, uriOverride?: string | null) {
+    if (!id || this.nodes.has(id)) {
+      return;
+    }
+
+    if (this.nodes.size >= this.maxNodes) {
+      this.truncated = true;
+      return;
+    }
+
+    this.nodes.set(id, {
+      id,
+      label,
+      type,
+      uri: uriOverride ?? (isHttpUrl(id) ? id : undefined),
+      publicUrl: type === "dataset" ? datasetPublicUrl(id) : undefined
+    });
+  }
+
+  addEdge(source: string | null, target: string | null, label: string) {
+    if (!source || !target || !this.nodes.has(source) || !this.nodes.has(target)) {
+      return;
+    }
+
+    const id = `${source}:${label}:${target}`;
+
+    if (!this.edges.has(id)) {
+      this.edges.set(id, { id, source, target, label, type: label });
+    }
+  }
+
+  toData(sparqlTruncated: boolean): KnowledgeGraphData {
+    return {
+      nodes: Array.from(this.nodes.values()),
+      edges: Array.from(this.edges.values()),
+      truncated: this.truncated || sparqlTruncated,
+      maxNodes: this.maxNodes
+    };
+  }
+}
+
+function cleanValue(value: string | null) {
+  return value?.trim() || null;
+}
+
+function creatorLabel(givenName: string | null, familyName: string | null) {
+  return [givenName, familyName].map(cleanValue).filter(Boolean).join(" ") || "Creator";
+}
+
+function resourceLabel(value: string | null) {
+  if (!value) {
+    return "Resource";
+  }
+
+  const cleaned = value.replace(/[\/#]+$/, "");
+  return decodeURIComponent(cleaned.substring(Math.max(cleaned.lastIndexOf("/"), cleaned.lastIndexOf("#")) + 1));
+}
+
+function datasetPublicUrl(uri: string | null) {
+  const match = uri?.match(/\/id\/dataset\/([^/]+)\/version\/([^/]+)$/);
+
+  if (!match) {
+    return undefined;
+  }
+
+  return `/datasets/${match[1]}/versions/${match[2]}`;
+}
+
+function isHttpUrl(value: string) {
+  return value.startsWith("http://") || value.startsWith("https://");
 }
 
 async function requestJson<T>(path: string, method: string, body?: unknown): Promise<T> {

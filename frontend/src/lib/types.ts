@@ -254,3 +254,28 @@ export interface SparqlExampleResponse {
   title: string;
   query: string;
 }
+
+export type KnowledgeGraphNodeType = "dataset" | "organization" | "creator" | "keyword" | "license" | "file";
+
+export interface KnowledgeGraphNode {
+  id: string;
+  label: string;
+  type: KnowledgeGraphNodeType;
+  uri?: string;
+  publicUrl?: string;
+}
+
+export interface KnowledgeGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  type: string;
+}
+
+export interface KnowledgeGraphData {
+  nodes: KnowledgeGraphNode[];
+  edges: KnowledgeGraphEdge[];
+  truncated: boolean;
+  maxNodes: number;
+}
